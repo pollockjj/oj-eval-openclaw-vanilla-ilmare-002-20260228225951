@@ -138,7 +138,7 @@ std::vector<long long> int2048::multiply_vec(const std::vector<long long> &a, co
     // But each individual prime is ~10^9, so conv values up to ~10^9 are OK per mod.
     // The CRT reconstruction is needed when the true value > any single prime.
     
-    auto fa2 = fa, fa3 = fa, fb2 = fb, fb3 = fb;
+    auto fa2 = fa, fb2 = fb;
     
     // NTT with mod1
     ntt(fa, false); ntt(fb, false);
@@ -150,31 +150,16 @@ std::vector<long long> int2048::multiply_vec(const std::vector<long long> &a, co
     for (int i = 0; i < n; i++) fa2[i] = (__int128)fa2[i] * fb2[i] % MOD2;
     ntt2(fa2, true, MOD2, G2);
     
-    // NTT with mod3
-    ntt2(fa3, false, MOD3, G3); ntt2(fb3, false, MOD3, G3);
-    for (int i = 0; i < n; i++) fa3[i] = (__int128)fa3[i] * fb3[i] % MOD3;
-    ntt2(fa3, true, MOD3, G3);
-    
-    // CRT to reconstruct true convolution values
-    // x ≡ fa[i] (mod M1), x ≡ fa2[i] (mod M2), x ≡ fa3[i] (mod M3)
-    long long inv_m1_m2 = power(MOD1, MOD2 - 2, MOD2); // MOD1^(-1) mod MOD2
-    long long inv_m12_m3 = power((__int128)MOD1 % MOD3 * (MOD2 % MOD3) % MOD3, MOD3 - 2, MOD3);
+    // CRT with 2 primes: reconstruct x ≡ r1 (mod M1), x ≡ r2 (mod M2)
+    // x = r1 + M1 * ((r2 - r1) * M1^{-1} mod M2)
+    long long inv_m1_m2 = power(MOD1, MOD2 - 2, MOD2);
     
     std::vector<long long> conv(n);
     long long carry = 0;
     for (int i = 0; i < n; i++) {
-        long long r1 = fa[i];
-        long long r2 = fa2[i];
-        long long r3 = fa3[i];
-        
-        // Garner's algorithm
-        long long a1 = r1;
-        long long a2 = (__int128)(r2 - a1 + MOD2) % MOD2 * inv_m1_m2 % MOD2;
-        long long tmp = ((__int128)a1 + (__int128)a2 * MOD1) % MOD3;
-        long long a3 = (__int128)(r3 - tmp + MOD3) % MOD3 * inv_m12_m3 % MOD3;
-        
-        // x = a1 + a2*M1 + a3*M1*M2
-        __int128 x = (__int128)a1 + (__int128)a2 * MOD1 + (__int128)a3 * MOD1 * MOD2 + carry;
+        long long r1 = fa[i], r2 = fa2[i];
+        long long t = (__int128)(r2 - r1 + MOD2) % MOD2 * inv_m1_m2 % MOD2;
+        __int128 x = (__int128)r1 + (__int128)t * MOD1 + carry;
         conv[i] = (long long)(x % NB);
         carry = (long long)(x / NB);
     }
